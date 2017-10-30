@@ -2,12 +2,14 @@ import excons
 from excons.tools import python
 import sys
 
+ARGUMENTS["use-c++11"] = "1"
+
 env = excons.MakeBaseEnv()
 
 
 major = 1
 minor = 35
-patch = 2
+patch = 4
 
 
 bind_python = int(excons.GetArgument("materialx-bind-python", 1))
@@ -32,7 +34,7 @@ defs.append("MATERIALX_BUILD_VERSION=%d" % patch)
 if sys.platform == "win32":
     cppflags += " /W4 /MP /bigobj"
 else:
-    cppflags += " -std=gnu++11 -Wall -Wno-ignored-qualifiers -Wno-unused-parameter -Wno-undefined-var-template"
+    cppflags += " -Wall -Wno-ignored-qualifiers -Wno-unused-parameter -Wno-undefined-var-template"
 
 
 prjs = []
