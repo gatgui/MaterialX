@@ -34,17 +34,35 @@ _exampleFilenames = ('CustomNode.mtlx',
                      'MaterialGraphs.mtlx',
                      'MultiOutput.mtlx',
                      'PaintMaterials.mtlx',
-                     'PreShaderComposite.mtlx')
+                     'PreShaderComposite.mtlx',
+                     'BxDF/alSurface.mtlx',
+                     'BxDF/Disney_BRDF_2012.mtlx',
+                     'BxDF/Disney_BSDF_2015.mtlx')
 
 
 #--------------------------------------------------------------------------------
 class TestMaterialX(unittest.TestCase):
     def test_DataTypes(self):
-        # Convert between values and strings
         for value in _testValues:
+            # Convert between values and strings.
             string = mx.valueToString(value)
             newValue = mx.stringToValue(string, type(value))
             self.assertTrue(newValue == value)
+
+            # Test features of vector subclasses.
+            if isinstance(value, mx.VectorBase):
+                for index, scalar in enumerate(value):
+                    self.assertTrue(scalar == value[index])
+
+                value2 = value.copy()
+                self.assertTrue(value2 == value)
+                value2[0] += 1.0
+                self.assertTrue(value2 != value)
+
+                tup = tuple(value)
+                self.assertTrue(len(value) == len(tup))
+                for index in range(len(value)):
+                    self.assertTrue(value[index] == tup[index])
 
     def test_BuildDocument(self):
         # Create a document.
@@ -96,6 +114,9 @@ class TestMaterialX(unittest.TestCase):
         # Create a material that instantiates the shader.
         material = doc.addMaterial()
         shaderRef = material.addShaderRef('shaderRef1', 'simpleSrf')
+        self.assertTrue(material.getPrimaryShaderName() == 'simpleSrf')
+        self.assertTrue(len(material.getPrimaryShaderParameters()) == 1)
+        self.assertTrue(len(material.getPrimaryShaderInputs()) == 2)
         self.assertTrue(roughness.getBoundValue(material) == 0.25)
 
         # Bind a shader input to a value.
@@ -117,19 +138,32 @@ class TestMaterialX(unittest.TestCase):
         self.assertTrue(diffColor.getBoundValue(material) is None)
         self.assertTrue(diffColor.getDefaultValue() == mx.Color3(1.0))
 
-        # Create a collection.
-        collection = doc.addCollection()
-        self.assertTrue(doc.getCollections())
-        doc.removeCollection(collection.getName())
-        self.assertFalse(doc.getCollections())
+        # Create a look for the material.
+        look = doc.addLook()
+        self.assertTrue(len(doc.getLooks()) == 1)
 
-        # Create a property set.
-        propertySet = doc.addPropertySet()
-        property = propertySet.addProperty('twosided')
-        self.assertTrue(doc.getPropertySets())
-        self.assertTrue(propertySet.getProperties())
-        doc.removePropertySet(propertySet.getName())
-        self.assertFalse(doc.getPropertySets())
+        # Bind the material to a geometry string.
+        matAssign1 = look.addMaterialAssign("matAssign1", material.getName())
+        self.assertTrue(material.getReferencingMaterialAssigns()[0] == matAssign1)
+        matAssign1.setGeom("/robot1")
+        self.assertTrue(material.getBoundGeomStrings()[0] == "/robot1")
+
+        # Bind the material to a collection.
+        matAssign2 = look.addMaterialAssign("matAssign2", material.getName())
+        collection = doc.addCollection()
+        collectionAdd = collection.addCollectionAdd()
+        collectionAdd.setGeom("/robot2")
+        collectionRemove = collection.addCollectionRemove()
+        collectionRemove.setGeom("/robot2/left_arm")
+        matAssign2.setCollection(collection)
+        self.assertTrue(material.getBoundGeomCollections()[0] == collection)
+
+        # Create a property assignment.
+        propertyAssign = look.addPropertyAssign("twosided")
+        propertyAssign.setGeom("/robot1")
+        propertyAssign.setValue(True)
+        self.assertTrue(propertyAssign.getGeom() == "/robot1")
+        self.assertTrue(propertyAssign.getValue() == True)
 
         # Generate and verify require string.
         doc.generateRequireString()
@@ -262,7 +296,7 @@ class TestMaterialX(unittest.TestCase):
         self.assertTrue(doc.validate()[0])
 
     def test_ReadXml(self):
-        # Load the standard library.
+        # Read the standard library.
         libs = []
         for filename in _libraryFilenames:
             lib = mx.createDocument()
@@ -270,8 +304,8 @@ class TestMaterialX(unittest.TestCase):
             self.assertTrue(lib.validate()[0])
             libs.append(lib)
 
+        # Read and validate each example document.
         for filename in _exampleFilenames:
-            # Read the example document.
             doc = mx.createDocument()
             mx.readFromXmlFile(doc, filename, _searchPath)
             self.assertTrue(doc.validate()[0])
@@ -325,6 +359,15 @@ class TestMaterialX(unittest.TestCase):
                 if elem.isA(mx.Node):
                     self.assertTrue(elem.getNodeDef())
                     self.assertTrue(elem.getImplementation())
+
+        # Read the same document twice with duplicate elements skipped.
+        doc = mx.createDocument()
+        readOptions = mx.XmlReadOptions()
+        readOptions.skipDuplicateElements = True
+        filename = 'PaintMaterials.mtlx'
+        mx.readFromXmlFile(doc, filename, _searchPath, readOptions)
+        mx.readFromXmlFile(doc, filename, _searchPath, readOptions)
+        self.assertTrue(doc.validate()[0])
 
 
 #--------------------------------------------------------------------------------

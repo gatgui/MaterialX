@@ -337,6 +337,10 @@ bool Element::validate(string* message) const
 {
     bool res = true;
     validateRequire(isValidName(getName()), res, message, "Invalid element name");
+    if (hasColorSpace())
+    {
+        validateRequire(getDocument()->hasColorManagementSystem(), res, message, "Colorspace set without color management system");
+    }
     for (ElementPtr child : getChildren())
     {
         res = child->validate(message) && res;
@@ -568,6 +572,7 @@ INSTANTIATE_CONCRETE_SUBCLASS(LookInherit, "lookinherit")
 INSTANTIATE_CONCRETE_SUBCLASS(Material, "material")
 INSTANTIATE_CONCRETE_SUBCLASS(MaterialAssign, "materialassign")
 INSTANTIATE_CONCRETE_SUBCLASS(MaterialInherit, "materialinherit")
+INSTANTIATE_CONCRETE_SUBCLASS(Member, "member")
 INSTANTIATE_CONCRETE_SUBCLASS(Node, "node")
 INSTANTIATE_CONCRETE_SUBCLASS(NodeDef, "nodedef")
 INSTANTIATE_CONCRETE_SUBCLASS(NodeGraph, "nodegraph")

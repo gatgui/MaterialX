@@ -24,10 +24,13 @@ TEST_CASE("Load content", "[xmlio]")
         "MultiOutput.mtlx",
         "PaintMaterials.mtlx",
         "PreShaderComposite.mtlx",
+        "BxDF/alSurface.mtlx",
+        "BxDF/Disney_BRDF_2012.mtlx",
+        "BxDF/Disney_BSDF_2015.mtlx",
     };
     std::string searchPath = "documents/Libraries;documents/Examples";
 
-    // Load the standard library.
+    // Read the standard library.
     std::vector<mx::DocumentPtr> libs;
     for (std::string filename : libraryFilenames)
     {
@@ -37,12 +40,18 @@ TEST_CASE("Load content", "[xmlio]")
         libs.push_back(lib);
     }
 
+    // Read and validate each example document.
     for (std::string filename : exampleFilenames)
     {
-        // Load the example document.
         mx::DocumentPtr doc = mx::createDocument();
         mx::readFromXmlFile(doc, filename, searchPath);
-        REQUIRE(doc->validate());
+        std::string message;
+        bool docValid = doc->validate(&message);
+        if (!docValid)
+        {
+            WARN("[" + filename + "] " + message);
+        }
+        REQUIRE(docValid);
 
         // Traverse the document tree
         int valueElementCount = 0;
@@ -137,13 +146,28 @@ TEST_CASE("Load content", "[xmlio]")
 
         // Read document without XIncludes.
         doc2 = mx::createDocument();
-        mx::readFromXmlFile(doc2, filename, searchPath, false);
+        mx::XmlReadOptions readOptions;
+        readOptions.readXIncludes = false;
+        mx::readFromXmlFile(doc2, filename, searchPath, &readOptions);
         if (*doc2 != *doc)
         {
             writtenDoc = mx::createDocument();
             xmlString = mx::writeToXmlString(doc);
-            mx::readFromXmlString(writtenDoc, xmlString);
+            mx::readFromXmlString(writtenDoc, xmlString, &readOptions);
             REQUIRE(*doc2 == *writtenDoc);
         }
     }
+
+    // Read the same document twice with duplicate elements skipped.
+    mx::DocumentPtr doc = mx::createDocument();
+    mx::XmlReadOptions readOptions;
+    readOptions.skipDuplicateElements = true;
+    std::string filename = "PaintMaterials.mtlx";
+    mx::readFromXmlFile(doc, filename, searchPath, &readOptions);
+    mx::readFromXmlFile(doc, filename, searchPath, &readOptions);
+    REQUIRE(doc->validate());
+
+    // Read a non-existent document.
+    mx::DocumentPtr doc2 = mx::createDocument();
+    REQUIRE_THROWS_AS(mx::readFromXmlFile(doc2, "NonExistent.mtlx"), mx::ExceptionFileMissing);
 }
