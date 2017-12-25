@@ -34,7 +34,7 @@ defs.append("MATERIALX_BUILD_VERSION=%d" % patch)
 if sys.platform == "win32":
     cppflags += " /W4 /MP /bigobj"
 else:
-    cppflags += " -Wall -Wno-ignored-qualifiers -Wno-unused-parameter -Wno-undefined-var-template"
+    cppflags += " -Wall -Wno-ignored-qualifiers -Wno-unused-parameter -Wno-undefined-var-template -Wno-missing-braces"
 
 
 prjs = []
