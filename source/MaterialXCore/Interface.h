@@ -22,6 +22,8 @@ using ParameterPtr = shared_ptr<class Parameter>;
 using PortElementPtr = shared_ptr<class PortElement>;
 /// A shared pointer to an Input
 using InputPtr = shared_ptr<class Input>;
+/// A shared pointer to an Input
+using ConstInputPtr = shared_ptr<const class Input>;
 /// A shared pointer to an Output
 using OutputPtr = shared_ptr<class Output>;
 /// A shared pointer to an InterfaceElement
@@ -46,7 +48,7 @@ class Parameter : public ValueElement
 
     /// Return the Edge with the given index that lies directly upstream from
     /// this element in the dataflow graph.
-    Edge getUpstreamEdge(ConstMaterialPtr material = ConstMaterialPtr(),
+    Edge getUpstreamEdge(ConstMaterialPtr material = nullptr,
                          size_t index = 0) const override;
 
     /// Return the number of queriable upstream edges for this element.
@@ -196,7 +198,7 @@ class Input : public PortElement
 
     /// Return the Edge with the given index that lies directly upstream from
     /// this element in the dataflow graph.
-    Edge getUpstreamEdge(ConstMaterialPtr material = ConstMaterialPtr(),
+    Edge getUpstreamEdge(ConstMaterialPtr material = nullptr,
                          size_t index = 0) const override;
 
     /// Return the number of queriable upstream edges for this element.
@@ -231,7 +233,7 @@ class Output : public PortElement
 
     /// Return the Edge with the given index that lies directly upstream from
     /// this element in the dataflow graph.
-    Edge getUpstreamEdge(ConstMaterialPtr material = ConstMaterialPtr(),
+    Edge getUpstreamEdge(ConstMaterialPtr material = nullptr,
                          size_t index = 0) const override;
 
     /// Return the number of queriable upstream edges for this element.

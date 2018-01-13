@@ -22,7 +22,7 @@ using ObservedDocumentPtr = shared_ptr<class ObservedDocument>;
 /// An observer of a MaterialX Document
 class Observer
 {
-public:
+  public:
     Observer() { }
     virtual ~Observer() { }
 
@@ -61,7 +61,8 @@ class ObservedDocument : public Document
   public:
     ObservedDocument(ElementPtr parent, const string& name) : 
         Document(parent, name),
-        _updateScope(0)
+        _updateScope(0),
+        _callbacksEnabled(true)
     {
     }
     virtual ~ObservedDocument() { }
@@ -70,7 +71,7 @@ class ObservedDocument : public Document
     /// @{
 
     /// Add an observer.
-    bool addObserver(const string &name, ObserverPtr observer)
+    bool addObserver(const string& name, ObserverPtr observer)
     {
         if (_observerMap.find(name) != _observerMap.end())
         {
@@ -121,6 +122,16 @@ class ObservedDocument : public Document
         _updateScope = 0;
     }
 
+    void enableCallbacks() override
+    {
+        _callbacksEnabled = true;
+    }
+
+    void disableCallbacks() override
+    {
+        _callbacksEnabled = false;
+    }
+
     DocumentPtr copy() override
     {
         DocumentPtr doc = createDocument<ObservedDocument>();
@@ -131,60 +142,82 @@ class ObservedDocument : public Document
     void onAddElement(ElementPtr parent, ElementPtr elem) override
     {
         Document::onAddElement(parent, elem);
-        for (auto &item : _observerMap)
+
+        if (_callbacksEnabled)
         {
-            item.second->onAddElement(parent, elem);
+            for (auto &item : _observerMap)
+            {
+                item.second->onAddElement(parent, elem);
+            }
         }
     }
 
     void onRemoveElement(ElementPtr parent, ElementPtr elem) override
     {
         Document::onRemoveElement(parent, elem);
-        for (auto &item : _observerMap)
+        if (_callbacksEnabled)
         {
-            item.second->onRemoveElement(parent, elem);
+            for (auto &item : _observerMap)
+            {
+                item.second->onRemoveElement(parent, elem);
+            }
         }
     }
 
     void onSetAttribute(ElementPtr elem, const string& attrib, const string& value) override
     {
         Document::onSetAttribute(elem, attrib, value);
-        for (auto &item : _observerMap)
+        if (_callbacksEnabled)
         {
-            item.second->onSetAttribute(elem, attrib, value);
+            for (auto &item : _observerMap)
+            {
+                item.second->onSetAttribute(elem, attrib, value);
+            }
         }
     }
 
     void onRemoveAttribute(ElementPtr elem, const string& attrib) override
     {
         Document::onRemoveAttribute(elem, attrib);
-        for (auto &item : _observerMap)
+        if (_callbacksEnabled)
         {
-            item.second->onRemoveAttribute(elem, attrib);
+            for (auto &item : _observerMap)
+            {
+                item.second->onRemoveAttribute(elem, attrib);
+            }
         }
     }
 
     void onInitialize() override
     {
-        for (auto &item : _observerMap)
+        if (_callbacksEnabled)
         {
-            item.second->onInitialize();
+            for (auto &item : _observerMap)
+            {
+                item.second->onInitialize();
+            }
         }
     }
 
     void onRead() override
     {
-        for (auto &item : _observerMap)
+        if (_callbacksEnabled)
         {
-            item.second->onRead();
+            for (auto &item : _observerMap)
+            {
+                item.second->onRead();
+            }
         }
     }
 
     void onWrite() override
     {
-        for (auto &item : _observerMap)
+        if (_callbacksEnabled)
         {
-            item.second->onWrite();
+            for (auto &item : _observerMap)
+            {
+                item.second->onWrite();
+            }
         }
     }
 
@@ -193,9 +226,12 @@ class ObservedDocument : public Document
         // Only send notification for the outermost scope.
         if (!getUpdateScope())
         {
-            for (auto &item : _observerMap)
+            if (_callbacksEnabled)
             {
-                item.second->onBeginUpdate();
+                for (auto &item : _observerMap)
+                {
+                    item.second->onBeginUpdate();
+                }
             }
         }
 
@@ -204,14 +240,17 @@ class ObservedDocument : public Document
 
     void onEndUpdate() override
     {
-      _updateScope = std::max(_updateScope - 1, 0);
+        _updateScope = std::max(_updateScope - 1, 0);
 
         // Only send notification for the outermost scope.
         if (!getUpdateScope())
         {
-            for (auto &item : _observerMap)
+            if (_callbacksEnabled)
             {
-                item.second->onEndUpdate();
+                for (auto &item : _observerMap)
+                {
+                    item.second->onEndUpdate();
+                }
             }
         }
     }
@@ -221,6 +260,7 @@ class ObservedDocument : public Document
   private:
     std::unordered_map<string, ObserverPtr> _observerMap;
     int _updateScope;
+    bool _callbacksEnabled;
 };
 
 } // namespace MaterialX

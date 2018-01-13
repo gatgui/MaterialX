@@ -203,7 +203,7 @@ NodeDefPtr ShaderRef::getNodeDef() const
     return NodeDefPtr();
 }
 
-bool ShaderRef::validate(string * message) const
+bool ShaderRef::validate(string* message) const
 {
     bool res = true;
     NodeDefPtr nodeDef = getNodeDef();
@@ -213,6 +213,21 @@ bool ShaderRef::validate(string * message) const
         validateRequire(typeDef->getSemantic() == SHADER_SEMANTIC, res, message, "Shader reference to a non-shader nodedef");
     }
     return Element::validate(message) && res;
+}
+
+Edge ShaderRef::getUpstreamEdge(ConstMaterialPtr material, size_t index) const
+{
+    if (index < getUpstreamEdgeCount())
+    {
+        BindInputPtr input = getBindInputs()[index];
+        ElementPtr upstreamOutput = input->getConnectedOutput();
+        if (upstreamOutput)
+        {
+            return Edge(getSelfNonConst(), input, upstreamOutput);
+        }
+    }
+
+    return NULL_EDGE;
 }
 
 //

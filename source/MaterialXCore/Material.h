@@ -257,7 +257,7 @@ class Material : public Element
     /// Return all geometry collections that are bound to this material by
     /// Look elements.
     /// @return A vector of shared pointers to Collection elements.
-   vector<CollectionPtr> getBoundGeomCollections() const;
+    vector<CollectionPtr> getBoundGeomCollections() const;
 
     /// @}
     /// @name Validation
@@ -514,6 +514,21 @@ class ShaderRef : public Element
     /// Validate that the given element tree, including all descendants, is
     /// consistent with the MaterialX specification.
     bool validate(string* message = nullptr) const override;
+
+    /// @}
+    /// @name Traversal
+    /// @{
+
+    /// Return the Edge with the given index that lies directly upstream from
+    /// this element in the dataflow graph.
+    Edge getUpstreamEdge(ConstMaterialPtr material = ConstMaterialPtr(),
+                         size_t index = 0) const override;
+
+    /// Return the number of queriable upstream edges for this element.
+    size_t getUpstreamEdgeCount() const override
+    {
+        return getBindInputs().size();
+    }
 
     /// @}
 
