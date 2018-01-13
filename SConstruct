@@ -9,7 +9,7 @@ env = excons.MakeBaseEnv()
 
 major = 1
 minor = 35
-patch = 4
+patch = 5
 
 
 bind_python = int(excons.GetArgument("materialx-bind-python", 1))
@@ -67,7 +67,7 @@ if bind_python:
                    "alias": "materialx-py",
                    "ext": python.ModuleExtension(),
                    "prefix": "python/MaterialX",
-                   "defs": defs + ["PYBIND11_PREFER_PYINT"],
+                   "defs": defs,
                    "cppflags": cppflags,
                    "symvis": "default",
                    "incdirs": incdirs + ["source/PyMaterialX"],
