@@ -18,8 +18,8 @@ _testValues = (1,
                mx.Vector2(1.0, 2.0),
                mx.Vector3(1.0, 2.0, 3.0),
                mx.Vector4(1.0, 2.0, 3.0, 4.0),
-               mx.Matrix3x3(0.0),
-               mx.Matrix4x4(1.0),
+               mx.Matrix33(0.0),
+               mx.Matrix44(1.0),
                'value')
 
 _fileDir = os.path.dirname(os.path.abspath(__file__))
@@ -54,20 +54,61 @@ class TestMaterialX(unittest.TestCase):
             newType = mx.nameToType(string)
             self.assertTrue(newType == type(value))
 
-            # Test features of vector subclasses.
-            if isinstance(value, mx.VectorBase):
-                for index, scalar in enumerate(value):
-                    self.assertTrue(scalar == value[index])
+    def test_VectorOperators(self):
+        v1 = mx.Vector3(1, 2, 3)
+        v2 = mx.Vector3(2, 4, 6)
 
-                value2 = value.copy()
-                self.assertTrue(value2 == value)
-                value2[0] += 1.0
-                self.assertTrue(value2 != value)
+        # Indexing operators
+        self.assertTrue(v1[2] == 3)
+        v1[2] = 4
+        self.assertTrue(v1[2] == 4)
+        v1[2] = 3
 
-                tup = tuple(value)
-                self.assertTrue(len(value) == len(tup))
-                for index in range(len(value)):
-                    self.assertTrue(value[index] == tup[index])
+        # Component-wise operators
+        self.assertTrue(v2 + v1 == mx.Vector3(3, 6, 9))
+        self.assertTrue(v2 - v1 == mx.Vector3(1, 2, 3))
+        self.assertTrue(v2 * v1 == mx.Vector3(2, 8, 18))
+        self.assertTrue(v2 / v1 == mx.Vector3(2, 2, 2))
+
+        # Equality operators
+        v3 = v2.copy()
+        self.assertTrue(v3 == v2)
+        v3[0] += 1;
+        self.assertTrue(v3 != v2)
+
+    def test_MatrixOperators(self):
+        trans = mx.Matrix44(1, 0, 0, 0,
+                            0, 1, 0, 0,
+                            0, 0, 1, 0,
+                            3, 0, 0, 1)
+        scale = mx.Matrix44(2, 0, 0, 0,
+                            0, 2, 0, 0,
+                            0, 0, 2, 0,
+                            0, 0, 0, 1)
+
+        # Indexing operators
+        self.assertTrue(trans[3, 0] == 3)
+        trans[3, 0] = 4
+        self.assertTrue(trans[3, 0] == 4)
+        trans[3, 0] = 3
+
+        # Matrix operators
+        prod1 = trans * scale
+        prod2 = scale * trans
+        self.assertTrue(prod1 == mx.Matrix44(2, 0, 0, 0,
+                                             0, 2, 0, 0,
+                                             0, 0, 2, 0,
+                                             6, 0, 0, 1))
+        self.assertTrue(prod2 == mx.Matrix44(2, 0, 0, 0,
+                                             0, 2, 0, 0,
+                                             0, 0, 2, 0,
+                                             3, 0, 0, 1))
+
+        # Equality operators
+        trans2 = trans.copy()
+        self.assertTrue(trans2 == trans)
+        trans2[0, 0] += 1;
+        self.assertTrue(trans2 != trans)
 
     def test_BuildDocument(self):
         # Create a document.
@@ -99,6 +140,18 @@ class TestMaterialX(unittest.TestCase):
         file = 'image1.tif'
         image.setParameterValue('file', file, 'filename')
         self.assertTrue(image.getParameterValue('file') == file)
+
+        # Create a custom nodedef.
+        nodeDef = doc.addNodeDef('nodeDef1', 'float', 'turbulence3d')
+        nodeDef.setParameterValue('octaves', 3)
+        nodeDef.setParameterValue('lacunarity', 2.0)
+        nodeDef.setParameterValue('gain', 0.5)
+
+        # Reference the custom nodedef.
+        custom = nodeGraph.addNode('turbulence3d', 'turbulence1', 'float')
+        self.assertTrue(custom.getParameterValue('octaves') == 3)
+        custom.setParameterValue('octaves', 5)
+        self.assertTrue(custom.getParameterValue('octaves') == 5)
 
         # Validate the document.
         self.assertTrue(doc.validate()[0])
@@ -143,6 +196,12 @@ class TestMaterialX(unittest.TestCase):
         self.assertTrue(diffColor.getBoundValue(material) is None)
         self.assertTrue(diffColor.getDefaultValue() == mx.Color3(1.0))
 
+        # Create an inherited material.
+        material2 = doc.addMaterial()
+        material2.setInheritsFrom(material)
+        self.assertTrue(roughness.getBoundValue(material2) == 0.5)
+        self.assertTrue(diffColor.getUpstreamElement(material2) == output2)
+
         # Create a look for the material.
         look = doc.addLook()
         self.assertTrue(len(doc.getLooks()) == 1)
@@ -169,6 +228,14 @@ class TestMaterialX(unittest.TestCase):
         propertyAssign.setValue(True)
         self.assertTrue(propertyAssign.getGeom() == "/robot1")
         self.assertTrue(propertyAssign.getValue() == True)
+
+        # Create a property set assignment.
+        propertySet = doc.addPropertySet()
+        propertySet.setPropertyValue('matte', False)
+        self.assertTrue(propertySet.getPropertyValue('matte') == False)
+        propertySetAssign = look.addPropertySetAssign(propertySet.getName())
+        propertySetAssign.setGeom('/robot1')
+        self.assertTrue(propertySetAssign.getGeom() == '/robot1')
 
         # Generate and verify require string.
         doc.generateRequireString()

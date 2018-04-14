@@ -6,9 +6,6 @@
 #include <MaterialXCore/Element.h>
 
 #include <MaterialXCore/Document.h>
-#include <MaterialXCore/Geom.h>
-#include <MaterialXCore/Look.h>
-#include <MaterialXCore/Material.h>
 #include <MaterialXCore/Node.h>
 #include <MaterialXCore/Util.h>
 
@@ -105,6 +102,20 @@ string Element::getNamePath(ConstElementPtr relativeTo) const
         res = res.empty() ? elem->getName() : elem->getName() + NAME_PATH_SEPARATOR + res;
     }
     return res;
+}
+
+ElementPtr Element::getDescendant(const string& path)
+{
+    const vector<string> elementNames = splitString(path, NAME_PATH_SEPARATOR);
+    ElementPtr currentElement = getSelf();
+    for (const string& elementName : elementNames)
+    {
+        if (!(currentElement = currentElement->getChild(elementName)))
+        {
+            return ElementPtr();
+        }
+    }
+    return currentElement;
 }
 
 void Element::registerChildElement(ElementPtr child)
@@ -277,6 +288,19 @@ ConstElementPtr Element::getRoot() const
     return root;
 }
 
+bool Element::hasInheritanceCycle() const
+{
+    try
+    {
+        for (ConstElementPtr elem : traverseInheritance()) { }
+    }
+    catch (ExceptionFoundCycle&)
+    {
+        return true;
+    }
+    return false;
+}
+
 TreeIterator Element::traverseTree() const
 {
     return TreeIterator(getSelfNonConst());
@@ -295,6 +319,11 @@ Edge Element::getUpstreamEdge(ConstMaterialPtr, size_t) const
 ElementPtr Element::getUpstreamElement(ConstMaterialPtr material, size_t index) const
 {
     return getUpstreamEdge(material, index).getUpstreamElement();
+}
+
+InheritanceIterator Element::traverseInheritance() const
+{
+    return InheritanceIterator(getSelf());
 }
 
 AncestorIterator Element::traverseAncestors() const
@@ -351,6 +380,7 @@ bool Element::validate(string* message) const
     {
         res = child->validate(message) && res;
     }
+    validateRequire(!hasInheritanceCycle(), res, message, "Cycle in element inheritance chain");
     return res;
 }
 
@@ -443,28 +473,17 @@ ValuePtr ValueElement::getDefaultValue() const
     {
         return getValue();
     }
-    ConstElementPtr parent = getParent();
-    if (parent->isA<Implementation>())
+
+    // Return the value, if any, stored in our declaration.
+    if (getParent()->isA<InterfaceElement>())
     {
-        ConstNodeDefPtr nodeDef = parent->asA<Implementation>()->getNodeDef();
-        if (nodeDef)
+        NodeDefPtr decl = getParent()->asA<InterfaceElement>()->getDeclaration();
+        if (decl)
         {
-            InputPtr input = nodeDef->getInput(getName());
-            if (input)
+            ValueElementPtr value = decl->getChildOfType<ValueElement>(getName());
+            if (value)
             {
-                return input->getValue();
-            }
-        }
-    }
-    if (parent->isA<Node>())
-    {
-        ConstNodeDefPtr nodeDef = parent->asA<Node>()->getNodeDef();
-        if (nodeDef)
-        {
-            InputPtr input = nodeDef->getInput(getName());
-            if (input)
-            {
-                return input->getValue();
+                return value->getValue();
             }
         }
     }
@@ -476,7 +495,7 @@ bool ValueElement::validate(string* message) const
     bool res = true;
     if (hasType() && hasValueString())
     {
-        validateRequire(hasValue(), res, message, "Invalid value");
+        validateRequire(getValue() != nullptr, res, message, "Invalid value");
     }
     return TypedElement::validate(message) && res;
 }
