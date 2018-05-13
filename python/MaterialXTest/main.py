@@ -1,3 +1,4 @@
+import math
 import os
 import unittest
 
@@ -39,6 +40,8 @@ _exampleFilenames = ('CustomNode.mtlx',
                      'BxDF/Disney_BRDF_2012.mtlx',
                      'BxDF/Disney_BSDF_2015.mtlx')
 
+_epsilon = 1e-4
+
 
 #--------------------------------------------------------------------------------
 class TestMaterialX(unittest.TestCase):
@@ -54,7 +57,7 @@ class TestMaterialX(unittest.TestCase):
             newType = mx.nameToType(string)
             self.assertTrue(newType == type(value))
 
-    def test_VectorOperators(self):
+    def test_Vectors(self):
         v1 = mx.Vector3(1, 2, 3)
         v2 = mx.Vector3(2, 4, 6)
 
@@ -69,42 +72,101 @@ class TestMaterialX(unittest.TestCase):
         self.assertTrue(v2 - v1 == mx.Vector3(1, 2, 3))
         self.assertTrue(v2 * v1 == mx.Vector3(2, 8, 18))
         self.assertTrue(v2 / v1 == mx.Vector3(2, 2, 2))
+        self.assertTrue(v1 * 2 == v2)
+        self.assertTrue(v2 / 2 == v1)
 
-        # Equality operators
-        v3 = v2.copy()
-        self.assertTrue(v3 == v2)
-        v3[0] += 1;
-        self.assertTrue(v3 != v2)
+        # Geometric methods
+        v3 = mx.Vector4(4)
+        self.assertTrue(v3.getMagnitude() == 8)
+        self.assertTrue(v3.getNormalized().getMagnitude() == 1)
 
-    def test_MatrixOperators(self):
-        trans = mx.Matrix44(1, 0, 0, 0,
-                            0, 1, 0, 0,
-                            0, 0, 1, 0,
-                            3, 0, 0, 1)
-        scale = mx.Matrix44(2, 0, 0, 0,
-                            0, 2, 0, 0,
-                            0, 0, 2, 0,
-                            0, 0, 0, 1)
+        # Vector copy
+        v4 = v2.copy()
+        self.assertTrue(v4 == v2)
+        v4[0] += 1;
+        self.assertTrue(v4 != v2)
+
+    def test_Matrices(self):
+        # Translation and scale
+        trans = mx.Matrix44.createTranslation(mx.Vector3(1, 2, 3))
+        scale = mx.Matrix44.createScale(mx.Vector3(2))
+        self.assertTrue(trans == mx.Matrix44(1, 0, 0, 0,
+                                             0, 1, 0, 0,
+                                             0, 0, 1, 0,
+                                             1, 2, 3, 1))
+        self.assertTrue(scale == mx.Matrix44(2, 0, 0, 0,
+                                             0, 2, 0, 0,
+                                             0, 0, 2, 0,
+                                             0, 0, 0, 1))
 
         # Indexing operators
-        self.assertTrue(trans[3, 0] == 3)
-        trans[3, 0] = 4
-        self.assertTrue(trans[3, 0] == 4)
-        trans[3, 0] = 3
+        self.assertTrue(trans[3, 2] == 3)
+        trans[3, 2] = 4
+        self.assertTrue(trans[3, 2] == 4)
+        trans[3, 2] = 3
 
-        # Matrix operators
+        # Matrix methods
+        self.assertTrue(trans.getTranspose() == mx.Matrix44(1, 0, 0, 1,
+                                                            0, 1, 0, 2,
+                                                            0, 0, 1, 3,
+                                                            0, 0, 0, 1))
+        self.assertTrue(scale.getTranspose() == scale)
+        self.assertTrue(trans.getDeterminant() == 1)
+        self.assertTrue(scale.getDeterminant() == 8)
+        self.assertTrue(trans.getInverse() ==
+                        mx.Matrix44.createTranslation(mx.Vector3(-1, -2, -3)))
+
+        # Matrix product
         prod1 = trans * scale
         prod2 = scale * trans
+        prod3 = trans * 2
+        prod4 = trans
+        prod4 *= scale
         self.assertTrue(prod1 == mx.Matrix44(2, 0, 0, 0,
                                              0, 2, 0, 0,
                                              0, 0, 2, 0,
-                                             6, 0, 0, 1))
+                                             2, 4, 6, 1))
         self.assertTrue(prod2 == mx.Matrix44(2, 0, 0, 0,
                                              0, 2, 0, 0,
                                              0, 0, 2, 0,
-                                             3, 0, 0, 1))
+                                             1, 2, 3, 1))
+        self.assertTrue(prod3 == mx.Matrix44(2, 0, 0, 0,
+                                             0, 2, 0, 0,
+                                             0, 0, 2, 0,
+                                             2, 4, 6, 2))
+        self.assertTrue(prod4 == prod1)
 
-        # Equality operators
+        # Matrix division
+        quot1 = prod1 / scale
+        quot2 = prod2 / trans
+        quot3 = prod3 / 2
+        quot4 = quot1
+        quot4 /= trans
+        self.assertTrue(quot1 == trans)
+        self.assertTrue(quot2 == scale)
+        self.assertTrue(quot3 == trans)
+        self.assertTrue(quot4 == mx.Matrix44.IDENTITY)
+
+        # 2D rotation
+        rot1 = mx.Matrix33.createRotation(math.pi / 2)
+        rot2 = mx.Matrix33.createRotation(math.pi)
+        self.assertTrue((rot1 * rot1).isEquivalent(rot2, _epsilon))
+        self.assertTrue(rot2.isEquivalent(
+            mx.Matrix33.createScale(mx.Vector2(-1)), _epsilon))
+        self.assertTrue((rot2 * rot2).isEquivalent(mx.Matrix33.IDENTITY, _epsilon))
+
+        # 3D rotation
+        rotX = mx.Matrix44.createRotationX(math.pi)
+        rotY = mx.Matrix44.createRotationY(math.pi)
+        rotZ = mx.Matrix44.createRotationZ(math.pi)
+        self.assertTrue((rotX * rotY).isEquivalent(
+            mx.Matrix44.createScale(mx.Vector3(-1, -1, 1)), _epsilon))
+        self.assertTrue((rotX * rotZ).isEquivalent(
+            mx.Matrix44.createScale(mx.Vector3(-1, 1, -1)), _epsilon))
+        self.assertTrue((rotY * rotZ).isEquivalent(
+            mx.Matrix44.createScale(mx.Vector3(1, -1, -1)), _epsilon))
+
+        # Matrix copy
         trans2 = trans.copy()
         self.assertTrue(trans2 == trans)
         trans2[0, 0] += 1;
